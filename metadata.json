@@ -1,0 +1,5 @@
+{
+  "name": "HD Fitness AI",
+  "description": "AI-powered posture assessment and fitness analysis dashboard for HD Fitness Center.",
+  "requestFramePermissions": ["camera"]
+}
