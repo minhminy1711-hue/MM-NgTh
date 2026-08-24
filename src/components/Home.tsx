@@ -56,22 +56,15 @@ export default function Home({ userName, role, onLogout, onNavigate }: HomeProps
       <header className="relative py-12 px-4 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-[#07111F] to-transparent opacity-50" />
         <div className="max-w-7xl mx-auto relative z-10 flex flex-col items-center text-center space-y-6">
-          <div className="flex items-center justify-center gap-8 mb-4">
+          <div className="flex items-center justify-center mb-4">
             <div className="flex flex-col items-center gap-2">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center p-2 shadow-xl">
-                <img src="https://picsum.photos/seed/univ-logo/100/100" alt="ĐH Vinh" className="w-full h-auto object-contain" />
+              <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center p-2 shadow-xl border-2 border-[#FFD700]">
+                <Dumbbell className="w-10 h-10 text-[#0B192C]" />
               </div>
-              <span className="text-[10px] text-accent font-bold uppercase leading-tight">Trường Đại học Vinh<br/>Khoa GDTC</span>
-            </div>
-            <div className="w-px h-16 bg-accent/20" />
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center p-2 shadow-xl">
-                <img src="https://picsum.photos/seed/fitness-logo/100/100" alt="HD Fitness" className="w-full h-auto object-contain" />
-              </div>
-              <span className="text-[10px] text-accent font-bold uppercase leading-tight">Đơn vị Ứng dụng<br/>HD Fitness Center</span>
+              <span className="text-xs text-[#FFD700] font-bold uppercase tracking-wider">HD Fitness & Yoga Center</span>
             </div>
           </div>
-          <h1 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter">Trợ lý AI - HD Fitness</h1>
+          <h1 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter">Trợ lý AI - HD Fitness & Yoga</h1>
           <p className="text-accent italic font-medium text-lg">Hệ thống đánh giá tư thế tập luyện cho hội viên Nữ</p>
           <div className="w-24 h-1 bg-primary rounded-full" />
         </div>

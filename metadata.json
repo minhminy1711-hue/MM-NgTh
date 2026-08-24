@@ -1,5 +1,10 @@
 {
   "name": "HD Fitness AI",
-  "description": "AI-powered posture assessment and fitness analysis dashboard for HD Fitness Center.",
-  "requestFramePermissions": ["camera"]
+  "description": "Hệ thống quản lý dữ liệu tập luyện, chỉ số nhân trắc cơ thể và đánh giá động học tư thế AI cho HD Fitness Center.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

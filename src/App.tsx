@@ -1,72 +1,215 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { CurrentUser, StudentProfile, BodyMeasurement } from './types/fitness';
+import {
+  getStoredStudents,
+  getStoredCurrentUser,
+  saveStoredCurrentUser,
+  addStudent,
+  addMeasurementToStudent,
+  addPostureSessionToStudent,
+} from './services/storageService';
+import Navbar from './components/Navbar';
 import Login from './components/Login';
-import Home from './components/Home';
-import Dashboard from './components/Dashboard';
+import AdminStudentList from './components/AdminStudentList';
+import StudentDetailView from './components/StudentDetailView';
+import StudentPortal from './components/StudentPortal';
+import CenterAnalytics from './components/CenterAnalytics';
 import PostureModule from './components/PostureModule';
-
-type View = 'home' | 'dashboard' | 'squat' | 'lunges' | 'core';
+import { AnalysisResult } from './services/geminiService';
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState<{ name: string; role: 'student' | 'admin' } | null>(null);
-  const [currentView, setCurrentView] = useState<View>('home');
+  const [students, setStudents] = useState<StudentProfile[]>([]);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  
+  // Navigation tabs
+  const [currentTab, setCurrentTab] = useState<'admin-students' | 'student-profile' | 'workout-ai' | 'analytics'>('admin-students');
+  
+  // Selected student in Admin view
+  const [adminSelectedStudentId, setAdminSelectedStudentId] = useState<string | null>(null);
 
-  // Check for saved session
+  // Active workout AI modal/view
+  const [activeWorkout, setActiveWorkout] = useState<{
+    exercise: 'squat' | 'lunges' | 'core';
+    studentId: string;
+  } | null>(null);
+
+  // Load initial data
   useEffect(() => {
-    const savedUser = localStorage.getItem('hdfitness_user');
-    const savedRole = localStorage.getItem('hdfitness_role') as 'student' | 'admin';
-    const loggedIn = localStorage.getItem('hdfitness_logged_in') === 'true';
+    const loadedStudents = getStoredStudents();
+    setStudents(loadedStudents);
 
-    if (loggedIn && savedUser) {
-      setUser({ name: savedUser, role: savedRole });
-      setIsLoggedIn(true);
+    const savedUser = getStoredCurrentUser();
+    if (savedUser) {
+      setCurrentUser(savedUser);
+      if (savedUser.role === 'student') {
+        setCurrentTab('student-profile');
+      } else {
+        setCurrentTab('admin-students');
+      }
     }
   }, []);
 
-  const handleLogin = (name: string, role: 'student' | 'admin') => {
-    localStorage.setItem('hdfitness_user', name);
-    localStorage.setItem('hdfitness_role', role);
-    localStorage.setItem('hdfitness_logged_in', 'true');
-    setUser({ name, role });
-    setIsLoggedIn(true);
-    if (role === 'admin') setCurrentView('dashboard');
+  const handleLogin = (user: CurrentUser) => {
+    setCurrentUser(user);
+    saveStoredCurrentUser(user);
+    if (user.role === 'admin') {
+      setCurrentTab('admin-students');
+      setAdminSelectedStudentId(null);
+    } else {
+      setCurrentTab('student-profile');
+    }
   };
 
   const handleLogout = () => {
-    localStorage.setItem('hdfitness_logged_in', 'false');
-    setIsLoggedIn(false);
-    setUser(null);
-    setCurrentView('home');
+    setCurrentUser(null);
+    saveStoredCurrentUser(null);
+    setAdminSelectedStudentId(null);
+    setActiveWorkout(null);
   };
 
-  if (!isLoggedIn) {
-    return <Login onLogin={handleLogin} />;
+  const handleSwitchUser = (user: CurrentUser) => {
+    handleLogin(user);
+  };
+
+  // Add new student (Admin)
+  const handleAddStudent = (
+    studentData: Omit<StudentProfile, 'id' | 'measurements' | 'postureHistory'>,
+    initialMeasurement?: any
+  ) => {
+    const created = addStudent(studentData, initialMeasurement);
+    setStudents(getStoredStudents());
+    setAdminSelectedStudentId(created.id);
+  };
+
+  // Add new body measurement to student
+  const handleSaveMeasurement = (
+    studentId: string,
+    measurement: Omit<BodyMeasurement, 'id' | 'bmi' | 'whr'>
+  ) => {
+    addMeasurementToStudent(studentId, measurement);
+    setStudents(getStoredStudents());
+  };
+
+  // Start Exercise AI
+  const handleStartExerciseAI = (
+    exerciseType: 'squat' | 'lunges' | 'core',
+    studentId: string
+  ) => {
+    setActiveWorkout({
+      exercise: exerciseType,
+      studentId,
+    });
+  };
+
+  // Save AI workout result into student history
+  const handleSaveAIResult = (result: AnalysisResult, exerciseType: 'squat' | 'lunges' | 'core') => {
+    if (!activeWorkout) return;
+    
+    addPostureSessionToStudent(activeWorkout.studentId, {
+      date: new Date().toISOString().split('T')[0],
+      exerciseType,
+      score: result.score,
+      reps: result.reps,
+      kneeAngle: result.kneeAngle,
+      balance: result.balance,
+      feedback: result.feedback,
+      errors: result.errors,
+    });
+
+    setStudents(getStoredStudents());
+  };
+
+  // If not logged in
+  if (!currentUser) {
+    return <Login students={students} onLogin={handleLogin} />;
   }
 
-  if (currentView === 'dashboard') {
-    return <Dashboard userName={user?.name || ''} onBack={() => setCurrentView('home')} />;
-  }
-
-  if (['squat', 'lunges', 'core'].includes(currentView)) {
+  // Active AI Posture Workout View
+  if (activeWorkout) {
+    const targetStudent = students.find((s) => s.id === activeWorkout.studentId);
     return (
-      <PostureModule 
-        type={currentView as 'squat' | 'lunges' | 'core'} 
-        onBack={() => setCurrentView('home')} 
+      <PostureModule
+        type={activeWorkout.exercise}
+        student={targetStudent}
+        onBack={() => setActiveWorkout(null)}
+        onSaveResult={handleSaveAIResult}
+        onChangeExercise={(ex) =>
+          setActiveWorkout({ exercise: ex, studentId: activeWorkout.studentId })
+        }
       />
     );
   }
 
+  // Current logged in Student Profile (for student role)
+  const loggedInStudent = currentUser.studentId
+    ? students.find((s) => s.id === currentUser.studentId) || students[0]
+    : students[0];
+
   return (
-    <Home 
-      userName={user?.name || ''} 
-      role={user?.role || 'student'} 
-      onLogout={handleLogout} 
-      onNavigate={setCurrentView}
-    />
+    <div className="min-h-screen bg-[#0B192C] flex flex-col">
+      {/* Universal Top Header */}
+      <Navbar
+        currentUser={currentUser}
+        students={students}
+        onLogout={handleLogout}
+        onSwitchUser={handleSwitchUser}
+        currentTab={currentTab}
+        onNavigateTab={(tab) => {
+          setCurrentTab(tab);
+          setAdminSelectedStudentId(null);
+        }}
+      />
+
+      {/* Main Content Area */}
+      <main className="flex-1">
+        {currentUser.role === 'admin' ? (
+          /* ADMIN ROLE VIEWS */
+          adminSelectedStudentId ? (
+            /* Admin viewing specific student's full body dossier */
+            (() => {
+              const selectedSt = students.find((s) => s.id === adminSelectedStudentId);
+              if (!selectedSt) {
+                setAdminSelectedStudentId(null);
+                return null;
+              }
+              return (
+                <StudentDetailView
+                  student={selectedSt}
+                  onBack={() => setAdminSelectedStudentId(null)}
+                  onSaveMeasurement={handleSaveMeasurement}
+                  onStartExerciseAI={handleStartExerciseAI}
+                  canManageAllStudents={true}
+                />
+              );
+            })()
+          ) : currentTab === 'analytics' ? (
+            /* Admin viewing center-wide statistics */
+            <CenterAnalytics students={students} />
+          ) : (
+            /* Admin viewing student directory */
+            <AdminStudentList
+              students={students}
+              onSelectStudent={(id) => setAdminSelectedStudentId(id)}
+              onAddStudent={handleAddStudent}
+              onSaveMeasurement={handleSaveMeasurement}
+              onStartExerciseAI={handleStartExerciseAI}
+            />
+          )
+        ) : (
+          /* STUDENT ROLE VIEW (CHỈ XEM ĐƯỢC CỦA CHÍNH MÌNH) */
+          loggedInStudent ? (
+            <StudentPortal
+              student={loggedInStudent}
+              onSaveMeasurement={handleSaveMeasurement}
+              onStartExerciseAI={handleStartExerciseAI}
+            />
+          ) : (
+            <div className="p-8 text-center text-white">
+              Không tìm thấy hồ sơ học viên. Vui lòng liên hệ HLV quản lý.
+            </div>
+          )
+        )}
+      </main>
+    </div>
   );
 }
